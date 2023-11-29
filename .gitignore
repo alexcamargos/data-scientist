@@ -1,0 +1,77 @@
+### Jupyter Notebooks ###
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+### Python ###
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+MANIFEST
+
+# Unit test / coverage reports
+htmlcov/
+.coverage
+.coverage.*
+.cache
+*.cover
+
+# Environments
+.env
+.venv
+env/
+venv/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# PyCharm+all (JetBrains IDEs)
+.idea/
+
+### VSCode ###
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+### Windows ###
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+### macOS ###
+.DS_Store
+
+### Linux ###
+*~
+.Trash-*
+
+# Temporary files
+.fuse_hidden*
+.nfs*
+
+### Miscellaneous ###
+*.log
+*.sqlite3
+*.sqlite3-journal
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
