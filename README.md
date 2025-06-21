@@ -16,7 +16,12 @@ Cada projeto neste portfólio é um testemunho da minha habilidade em converter 
 
 ### [Uma Perspectiva Temporal da Dinâmica Econômica entre Salário Mínimo e Preço do Gás Liquefeito de Petróleo (GLP)](https://nbviewer.org/github/alexcamargos/data-scientist/blob/main/dados-abertos-anp/purchasing_power_GLP_minimum_wage.ipynb)
 
-A análise do poder de compra é uma ferramenta essencial para compreender a dinâmica econômica que afeta diretamente a vida dos cidadãos. Este projeto propõe uma análise comparativa entre o salário mínimo vigente no Brasil e o preço do Gás Liquefeito de Petróleo (GLP). Ao explorar essa relação, buscamos oferecer insights valiosos sobre a acessibilidade e o impacto econômico dessas variáveis nos lares brasileiros ao longo do tempo.
+A análise do poder de compra é uma ferramenta essencial para compreender a dinâmica econômica que afeta diretamente a vida dos cidadãos. Este projeto propõe uma análise comparativa entre o salário mínimo vigente no Brasil e o preço do Gás Liquefeito de Petróleo (GLP). Ao explorar essa relação, buscamos oferecer insights valiosos sobre a ac
+
+### [Existe relação diretamente o IBC-Br e o PIB?](https://colab.research.google.com/github/alexcamargos/data-scientist/blob/main/ibc-br_preditor_pib.ipynb)
+
+Este projeto investiga uma das questões mais pertinentes na análise macroeconômica brasileira: a relação entre o Índice de Atividade Econômica do Banco Central (IBC-Br) e o Produto Interno Bruto (PIB). Enquanto o PIB mede a totalidade de bens e serviços finais produzidos no país em um dado período, o IBC-Br atua como um termômetro mensal, fornecendo uma visão antecipada das tendências econômicas. Através de uma abordagem de ciência de dados de ponta, utilizaremos Python para coletar, tratar, analisar e modelar os dados de ambos os indicadores. Nosso objetivo é ir além da teoria e verificar, de forma empírica, a força dessa correlação, desvendando se o IBC-Br realmente se comporta como uma prévia robusta e confiável do desempenho econômico geral do Brasil. Este estudo é essencial para economistas, investidores e formuladores de políticas que buscam insights mais rápidos e precisos sobre a dinâmica econômica nacional.
+
 
 ### [Superando o Índice Bovespa com Ações de Alto Desempenho](https://nbviewer.org/github/alexcamargos/data-scientist/blob/main/momentum_factor_investing.ipynb)
 
