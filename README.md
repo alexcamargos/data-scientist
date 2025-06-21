@@ -18,6 +18,10 @@ Cada projeto neste portfólio é um testemunho da minha habilidade em converter 
 
 A análise do poder de compra é uma ferramenta essencial para compreender a dinâmica econômica que afeta diretamente a vida dos cidadãos. Este projeto propõe uma análise comparativa entre o salário mínimo vigente no Brasil e o preço do Gás Liquefeito de Petróleo (GLP). Ao explorar essa relação, buscamos oferecer insights valiosos sobre a acessibilidade e o impacto econômico dessas variáveis nos lares brasileiros ao longo do tempo.
 
+### [Superando o Índice Bovespa com Ações de Alto Desempenho](https://nbviewer.org/github/alexcamargos/data-scientist/blob/main/momentum_factor_investing.ipynb)
+
+Criar uma carteira de investimentos que supere o Índice Bovespa (Ibovespa) através da seleção de empresas com as maiores valorizações nos últimos seis meses.
+
 
 ### [Quarteto de Anscombe (Anscombe’s quartet)](https://nbviewer.org/github/alexcamargos/data-scientist/blob/main/anscombe_quartet.ipynb)
 
