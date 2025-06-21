@@ -14,6 +14,11 @@ Cada projeto neste portfólio é um testemunho da minha habilidade em converter 
 
 ## Projetos
 
+### [Uma Perspectiva Temporal da Dinâmica Econômica entre Salário Mínimo e Preço do Gás Liquefeito de Petróleo (GLP)](https://nbviewer.org/github/alexcamargos/data-scientist/blob/main/dados-abertos-anp/purchasing_power_GLP_minimum_wage.ipynb)
+
+A análise do poder de compra é uma ferramenta essencial para compreender a dinâmica econômica que afeta diretamente a vida dos cidadãos. Este projeto propõe uma análise comparativa entre o salário mínimo vigente no Brasil e o preço do Gás Liquefeito de Petróleo (GLP). Ao explorar essa relação, buscamos oferecer insights valiosos sobre a acessibilidade e o impacto econômico dessas variáveis nos lares brasileiros ao longo do tempo.
+
+
 ### [Quarteto de Anscombe (Anscombe’s quartet)](https://nbviewer.org/github/alexcamargos/data-scientist/blob/main/anscombe_quartet.ipynb)
 
 O [Quarteto de Anscombe](https://pt.wikipedia.org/wiki/Quarteto_de_Anscombe) ilustra de forma eloquente que, a visualização gráfica é indispensável na análise de dados, transcendendo o papel de simples ferramenta de aproximação para se tornar um elemento crucial na exploração e compreensão de conjuntos de dados. Sem a visualização, características únicas e insights valiosos podem ser perdidos, resultando em interpretações que são, no melhor dos casos, incompletas, e no pior, enganosas.
