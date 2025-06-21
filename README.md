@@ -27,6 +27,10 @@ Este projeto investiga uma das questões mais pertinentes na análise macroecon�
 
 Criar uma carteira de investimentos que supere o Índice Bovespa (Ibovespa) através da seleção de empresas com as maiores valorizações nos últimos seis meses.
 
+### [Visualização de Dados Financeiros](https://colab.research.google.com/github/alexcamargos/data-scientist/blob/main/dados_financeiros.ipynb)
+
+Neste projeto, iremos realizar uma análise dos dados financeiros de diversas empresas listadas na Bolsa de Valores do Brasil, a B3. Vamos também comparar esses dados com o Índice Bovespa (Ibovespa B3) para identificar tendências de valorização das ações. Para isso, utilizaremos uma abordagem que se concentra na análise de séries temporais.
+
 
 ### [Quarteto de Anscombe (Anscombe’s quartet)](https://nbviewer.org/github/alexcamargos/data-scientist/blob/main/anscombe_quartet.ipynb)
 
