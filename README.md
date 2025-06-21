@@ -12,6 +12,13 @@ Minha carreira é uma fusão estratégica de gestão, tecnologia e análise de d
 Cada projeto neste portfólio é um testemunho da minha habilidade em converter dados brutos em inteligência estratégica. Meu foco é ir além dos números, destilando insights que geram valor tangível e moldam o futuro das organizações. Neste portfólio você verá como a metodologia, a técnica e a visão de negócios se unem para criar soluções que não apenas respondem perguntas, mas também antecipam tendências e abrem novos caminhos; transformando dados em vantagem competitiva, aplicando uma visão holística que abrange desde a otimização administrativa até a mais avançada análise de [machinel learning](https://pt.wikipedia.org/wiki/Aprendizado_de_m%C3%A1quina).
 
 
+## Projetos
+
+### [Quarteto de Anscombe (Anscombe’s quartet)](https://nbviewer.org/github/alexcamargos/data-scientist/blob/main/anscombe_quartet.ipynb)
+
+O [Quarteto de Anscombe](https://pt.wikipedia.org/wiki/Quarteto_de_Anscombe) ilustra de forma eloquente que, a visualização gráfica é indispensável na análise de dados, transcendendo o papel de simples ferramenta de aproximação para se tornar um elemento crucial na exploração e compreensão de conjuntos de dados. Sem a visualização, características únicas e insights valiosos podem ser perdidos, resultando em interpretações que são, no melhor dos casos, incompletas, e no pior, enganosas.
+
+
 ## Como me encontrar
 
 Feito com :heart: por [Alexsander Lopes Camargos](https://github.com/alexcamargos) :wave: Entre em contato!
