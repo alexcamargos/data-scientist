@@ -1,0 +1,66 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/python
+{
+	"name": "Python Data Science Environment (Codespaces Optimized)",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	"customizations": {
+		"vscode": {
+			"settings": {
+				"python.defaultInterpreterPath": "/usr/local/bin/python",
+				// Configurações para formatadores e linters
+				"python.formatting.provider": "black", // Usaremos Black como formatador principal
+				"python.linting.enabled": true,
+				"python.linting.flake8Enabled": true,
+				"python.linting.pylintEnabled": true,
+				"python.linting.ruffEnabled": true, // Habilitar Ruff
+				"python.linting.lintOnSave": true, // Lintar ao salvar
+				"editor.formatOnSave": true,
+				"editor.codeActionsOnSave": {
+					"source.fixAll.ruff": "explicit", // Auto-correção com Ruff
+					"source.organizeImports": "explicit" // Organizar imports
+				},
+				"terminal.integrated.defaultProfile.linux": "zsh",
+				"terminal.integrated.profiles.linux": {
+					"zsh": {
+						"path": "/usr/bin/zsh"
+					}
+				}
+			},
+			"extensions": [
+				"ms-python.python",
+				"ms-toolsai.jupyter", // Essencial para Jupyter notebooks/lab no VS Code
+				"ms-python.vscode-pylance",
+				"streetsidesoftware.code-spell-checker",
+				"esbenp.prettier-vscode",
+				"ms-vscode.live-server",
+				"GitHub.copilot"
+			]
+		}
+	},
+
+	// Forward commonly used ports for web applications or Jupyter
+	"forwardPorts": [8888, 5000, 8000],
+
+	"portsAttributes": {
+		"8888": {
+			"label": "Jupyter Lab",
+			"onAutoForward": "notify"
+		},
+		"5000": {
+			"label": "Flask App",
+			"onAutoForward": "notify"
+		},
+		"8000": {
+			"label": "Custom App",
+			"onAutoForward": "notify"
+		}
+	},
+
+	// Run commands after the container is created
+	"postCreateCommand": "pip install --no-cache-dir -r requirements.txt",
+
+	// Connect as the vscode user, which is created by the base image
+	"remoteUser": "vscode"
+}
