@@ -39,6 +39,7 @@ class IngestionConfig:
 
     project_dir: Path
     raw_data_dir: Path
+    bronze_data_dir: Path
     manifest_path: Path
     kaggle_dataset_slug: str
     kaggle_target_dir: str
@@ -71,11 +72,13 @@ def load_config(config_path: Path = DEFAULT_CONFIG) -> IngestionConfig:
         config: dict[str, Any] = json.load(config_file)
 
     raw_data_dir = _resolve_project_path(project_dir, config["raw_data_dir"])
+    bronze_data_dir = _resolve_project_path(project_dir, config["bronze_data_dir"])
     manifest_path = _resolve_project_path(project_dir, config["manifest_path"])
 
     return IngestionConfig(
         project_dir=project_dir,
         raw_data_dir=raw_data_dir,
+        bronze_data_dir=bronze_data_dir,
         manifest_path=manifest_path,
         kaggle_dataset_slug=config["kaggle"]["dataset_slug"],
         kaggle_target_dir=config["kaggle"]["target_dir"],
@@ -186,31 +189,54 @@ def ingest_all(config: IngestionConfig, *, force: bool, dry_run: bool) -> list[D
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run Cinematic Chronos raw batch ingestion.")
-    parser.add_argument(
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if not argv or argv[0] not in {"extract", "process-bronze", "-h", "--help"}:
+        argv.insert(0, "extract")
+
+    parser = argparse.ArgumentParser(description="Run Cinematic Chronos data pipeline tasks.")
+    subparsers = parser.add_subparsers(dest="command")
+
+    extract_parser = subparsers.add_parser("extract", help="Run raw Kaggle ingestion.")
+    extract_parser.add_argument(
         "--config",
         type=Path,
         default=DEFAULT_CONFIG,
         help="Path to ingestion JSON configuration.",
     )
-    parser.add_argument(
+    extract_parser.add_argument(
         "--source",
         choices=("kaggle",),
         default="kaggle",
         help="Source to ingest.",
     )
-    parser.add_argument("--force", action="store_true", help="Refresh existing raw files.")
-    parser.add_argument(
+    extract_parser.add_argument("--force", action="store_true", help="Refresh existing raw files.")
+    extract_parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Resolve targets without downloading files.",
     )
+
+    bronze_parser = subparsers.add_parser(
+        "process-bronze",
+        help="Filter Kaggle Oscar data to Best Picture nominees.",
+    )
+    bronze_parser.add_argument(
+        "--config",
+        type=Path,
+        default=DEFAULT_CONFIG,
+        help="Path to ingestion JSON configuration.",
+    )
     args = parser.parse_args(argv)
 
     config = load_config(args.config)
-    results = ingest_all(config, force=args.force, dry_run=args.dry_run)
-    for result in results:
-        print(json.dumps(asdict(result), ensure_ascii=False))
+    if args.command == "process-bronze":
+        from cinematic_chronos.processing import process_bronze
+
+        print(json.dumps(asdict(process_bronze(config)), ensure_ascii=False))
+    else:
+        results = ingest_all(config, force=args.force, dry_run=args.dry_run)
+        for result in results:
+            print(json.dumps(asdict(result), ensure_ascii=False))
     return 0
 
 
