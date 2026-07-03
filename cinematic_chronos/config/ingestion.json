@@ -1,0 +1,9 @@
+{
+  "raw_data_dir": "data/raw",
+  "manifest_path": "data/raw/manifest.jsonl",
+  "kaggle": {
+    "dataset_slug": "unanimad/the-oscar-award",
+    "target_dir": "oscar_awards",
+    "unzip": true
+  }
+}
