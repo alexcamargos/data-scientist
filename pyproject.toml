@@ -17,6 +17,7 @@ dependencies = [
     "pandas",
     "pandas-datareader",
     "plotly",
+    "pyarrow>=24.0.0",
     "pyreadr",
     "quantstats",
     "requests",
