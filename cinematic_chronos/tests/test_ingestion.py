@@ -3,6 +3,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -17,6 +18,8 @@ from cinematic_chronos.ingestion import (
     load_config,
 )
 from cinematic_chronos.processing import (
+    TmdbRuntimeClient,
+    enrich_tmdb_runtime,
     filter_best_picture_nominees,
     process_bronze,
 )
@@ -32,7 +35,10 @@ class IngestionTestCase(unittest.TestCase):
             Path("cinematic_chronos/data/raw/manifest.jsonl").resolve(),
         )
         self.assertEqual(config.bronze_data_dir, Path("cinematic_chronos/data/bronze").resolve())
+        self.assertEqual(config.silver_data_dir, Path("cinematic_chronos/data/silver").resolve())
         self.assertEqual(config.kaggle_dataset_slug, "unanimad/the-oscar-award")
+        self.assertEqual(config.tmdb_env_path, Path("cinematic_chronos/.env").resolve())
+        self.assertEqual(config.tmdb_api_key_env, "TMDB_API_KEY")
 
     def test_local_raw_store_records_json_lines(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -134,6 +140,157 @@ class IngestionTestCase(unittest.TestCase):
             self.assertEqual(result.rows_read, 2)
             self.assertEqual(result.rows_written, 1)
             self.assertEqual(output.loc[0, "film"], "Moonlight")
+
+    def test_tmdb_runtime_enrichment_dry_run_only_counts_missing_runtime(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            tmp_path = Path(temp_dir)
+            bronze_dir = tmp_path / "bronze"
+            bronze_dir.mkdir()
+            pd.DataFrame(
+                [
+                    {"film": "Moonlight", "year_film": 2016, "runtime_minutes": 111},
+                    {"film": "Parasite", "year_film": 2019, "runtime_minutes": pd.NA},
+                ]
+            ).to_parquet(
+                bronze_dir / "oscar_best_picture_nominees.parquet",
+                index=False,
+                engine="pyarrow",
+            )
+
+            config_path = tmp_path / "ingestion.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "raw_data_dir": str(tmp_path / "raw"),
+                        "bronze_data_dir": str(bronze_dir),
+                        "silver_data_dir": str(tmp_path / "silver"),
+                        "manifest_path": str(tmp_path / "raw" / "manifest.jsonl"),
+                        "kaggle": {
+                            "dataset_slug": "unanimad/the-oscar-award",
+                            "target_dir": "oscar_awards",
+                            "unzip": True,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = enrich_tmdb_runtime(load_config(config_path), dry_run=True)
+
+            self.assertEqual(result.status, "dry-run")
+            self.assertEqual(result.tmdb_candidates, 1)
+            self.assertEqual(result.tmdb_calls, 0)
+            self.assertEqual(result.rows_written, 0)
+
+    def test_tmdb_runtime_enrichment_reads_api_key_from_dotenv(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            tmp_path = Path(temp_dir)
+            bronze_dir = tmp_path / "bronze"
+            bronze_dir.mkdir()
+            pd.DataFrame(
+                [{"film": "Parasite", "year_film": 2019, "runtime_minutes": pd.NA}]
+            ).to_parquet(
+                bronze_dir / "oscar_best_picture_nominees.parquet",
+                index=False,
+                engine="pyarrow",
+            )
+            env_path = tmp_path / ".env"
+            env_path.write_text("TEST_TMDB_API_KEY_FROM_ENV_FILE='dotenv-token'\n", encoding="utf-8")
+
+            config_path = tmp_path / "ingestion.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "raw_data_dir": str(tmp_path / "raw"),
+                        "bronze_data_dir": str(bronze_dir),
+                        "silver_data_dir": str(tmp_path / "silver"),
+                        "manifest_path": str(tmp_path / "raw" / "manifest.jsonl"),
+                        "kaggle": {
+                            "dataset_slug": "unanimad/the-oscar-award",
+                            "target_dir": "oscar_awards",
+                            "unzip": True,
+                        },
+                        "tmdb": {
+                            "env_path": str(env_path),
+                            "api_key_env": "TEST_TMDB_API_KEY_FROM_ENV_FILE",
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with patch("cinematic_chronos.processing.TmdbRuntimeClient", FakeRuntimeClient):
+                result = enrich_tmdb_runtime(load_config(config_path))
+
+            output = pd.read_parquet(result.target_path, engine="pyarrow")
+            self.assertEqual(FakeRuntimeClient.last_api_key, "dotenv-token")
+            self.assertEqual(result.tmdb_calls, 2)
+            self.assertEqual(output.loc[0, "runtime_minutes"], 132)
+
+    def test_tmdb_runtime_client_caches_api_response(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            session = FakeTmdbSession()
+            client = TmdbRuntimeClient(
+                api_key="token",
+                cache_dir=Path(temp_dir),
+                request_interval_seconds=0,
+                session=session,
+            )
+
+            first = client.get_runtime("Parasite", 2019)
+            second = client.get_runtime("Parasite", 2019)
+
+            self.assertEqual(first["runtime_minutes"], 132)
+            self.assertEqual(second["runtime_minutes"], 132)
+            self.assertTrue(first["from_api"])
+            self.assertFalse(second["from_api"])
+            self.assertEqual(first["api_calls"], 2)
+            self.assertEqual(second["api_calls"], 0)
+            self.assertEqual(session.call_count, 2)
+
+
+class FakeTmdbResponse:
+    def __init__(self, payload: dict) -> None:
+        self.payload = payload
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> dict:
+        return self.payload
+
+
+class FakeTmdbSession:
+    def __init__(self) -> None:
+        self.call_count = 0
+
+    def get(self, url: str, *, params: dict, timeout: int) -> FakeTmdbResponse:
+        self.call_count += 1
+        if url.endswith("/search/movie"):
+            return FakeTmdbResponse({"results": [{"id": 496243}]})
+        return FakeTmdbResponse({"runtime": 132})
+
+
+class FakeRuntimeClient:
+    last_api_key: str | None = None
+
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        cache_dir: Path,
+        language: str,
+        request_interval_seconds: float,
+    ) -> None:
+        self.last_api_key = api_key
+        FakeRuntimeClient.last_api_key = api_key
+
+    def get_runtime(self, title: str, year: int | None) -> dict:
+        return {
+            "runtime_minutes": 132,
+            "tmdb_id": 496243,
+            "api_calls": 2,
+        }
 
 
 if __name__ == "__main__":

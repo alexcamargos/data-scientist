@@ -40,10 +40,16 @@ class IngestionConfig:
     project_dir: Path
     raw_data_dir: Path
     bronze_data_dir: Path
+    silver_data_dir: Path
     manifest_path: Path
     kaggle_dataset_slug: str
     kaggle_target_dir: str
     kaggle_unzip: bool
+    tmdb_env_path: Path
+    tmdb_api_key_env: str
+    tmdb_cache_dir: Path
+    tmdb_language: str
+    tmdb_request_interval_seconds: float
 
 
 class LocalRawStore:
@@ -73,16 +79,32 @@ def load_config(config_path: Path = DEFAULT_CONFIG) -> IngestionConfig:
 
     raw_data_dir = _resolve_project_path(project_dir, config["raw_data_dir"])
     bronze_data_dir = _resolve_project_path(project_dir, config["bronze_data_dir"])
+    silver_data_dir = _resolve_project_path(
+        project_dir,
+        config.get("silver_data_dir", "data/silver"),
+    )
     manifest_path = _resolve_project_path(project_dir, config["manifest_path"])
+    tmdb_config = config.get("tmdb", {})
+    tmdb_cache_dir = _resolve_project_path(
+        project_dir,
+        tmdb_config.get("cache_dir", "data/raw/tmdb/runtime_cache"),
+    )
+    tmdb_env_path = _resolve_project_path(project_dir, tmdb_config.get("env_path", ".env"))
 
     return IngestionConfig(
         project_dir=project_dir,
         raw_data_dir=raw_data_dir,
         bronze_data_dir=bronze_data_dir,
+        silver_data_dir=silver_data_dir,
         manifest_path=manifest_path,
         kaggle_dataset_slug=config["kaggle"]["dataset_slug"],
         kaggle_target_dir=config["kaggle"]["target_dir"],
         kaggle_unzip=bool(config["kaggle"].get("unzip", True)),
+        tmdb_env_path=tmdb_env_path,
+        tmdb_api_key_env=tmdb_config.get("api_key_env", "TMDB_API_KEY"),
+        tmdb_cache_dir=tmdb_cache_dir,
+        tmdb_language=tmdb_config.get("language", "en-US"),
+        tmdb_request_interval_seconds=float(tmdb_config.get("request_interval_seconds", 0.25)),
     )
 
 
@@ -190,7 +212,7 @@ def ingest_all(config: IngestionConfig, *, force: bool, dry_run: bool) -> list[D
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    if not argv or argv[0] not in {"extract", "process-bronze", "-h", "--help"}:
+    if not argv or argv[0] not in {"extract", "process-bronze", "enrich-tmdb-runtime", "-h", "--help"}:
         argv.insert(0, "extract")
 
     parser = argparse.ArgumentParser(description="Run Cinematic Chronos data pipeline tasks.")
@@ -226,6 +248,22 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_CONFIG,
         help="Path to ingestion JSON configuration.",
     )
+
+    tmdb_parser = subparsers.add_parser(
+        "enrich-tmdb-runtime",
+        help="Use TMDb to fill runtime only for Oscar movies without an IMDb runtime match.",
+    )
+    tmdb_parser.add_argument(
+        "--config",
+        type=Path,
+        default=DEFAULT_CONFIG,
+        help="Path to ingestion JSON configuration.",
+    )
+    tmdb_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Report how many movies would require TMDb without calling the API.",
+    )
     args = parser.parse_args(argv)
 
     config = load_config(args.config)
@@ -233,6 +271,10 @@ def main(argv: list[str] | None = None) -> int:
         from cinematic_chronos.processing import process_bronze
 
         print(json.dumps(asdict(process_bronze(config)), ensure_ascii=False))
+    elif args.command == "enrich-tmdb-runtime":
+        from cinematic_chronos.processing import enrich_tmdb_runtime
+
+        print(json.dumps(asdict(enrich_tmdb_runtime(config, dry_run=args.dry_run)), ensure_ascii=False))
     else:
         results = ingest_all(config, force=args.force, dry_run=args.dry_run)
         for result in results:
