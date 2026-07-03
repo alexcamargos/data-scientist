@@ -56,7 +56,7 @@ RUN pipx install autopep8 && \
     pipx install black && \
     pipx install flake8 && \
     pipx install pylint && \
-    pipx install ruff
+    pipx install isort
 
 # Install JupyterLab using pipx for isolation
 RUN pipx install jupyterlab

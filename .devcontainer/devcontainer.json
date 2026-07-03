@@ -9,18 +9,16 @@
 		"vscode": {
 			"settings": {
 				"python.defaultInterpreterPath": "/usr/local/bin/python",
-				// Configurações para formatadores e linters
-				"python.formatting.provider": "black", // Usaremos Black como formatador principal
-				"python.linting.enabled": true,
-				"python.linting.flake8Enabled": true,
-				"python.linting.pylintEnabled": true,
-				"python.linting.ruffEnabled": true, // Habilitar Ruff
-				"python.linting.lintOnSave": true, // Lintar ao salvar
-				"editor.formatOnSave": true,
-				"editor.codeActionsOnSave": {
-					"source.fixAll.ruff": "explicit", // Auto-correção com Ruff
-					"source.organizeImports": "explicit" // Organizar imports
+				"[python]": {
+					"editor.defaultFormatter": "ms-python.black-formatter",
+					"editor.formatOnSave": true,
+					"editor.codeActionsOnSave": {
+						"source.fixAll": "explicit",
+						"source.organizeImports": "explicit"
+					}
 				},
+				"isort.args": ["--profile", "black"],
+				"isort.path": ["isort"],
 				"terminal.integrated.defaultProfile.linux": "zsh",
 				"terminal.integrated.profiles.linux": {
 					"zsh": {
@@ -32,6 +30,10 @@
 				"ms-python.python",
 				"ms-toolsai.jupyter", // Essencial para Jupyter notebooks/lab no VS Code
 				"ms-python.vscode-pylance",
+				"ms-python.black-formatter", // Extensão oficial para o Black
+				"ms-python.isort", // Extensão oficial para o isort
+				"ms-python.flake8", // Extensão oficial para o flake8
+				"ms-python.pylint", // Extensão oficial para o pylint
 				"streetsidesoftware.code-spell-checker",
 				"esbenp.prettier-vscode",
 				"ms-vscode.live-server",
