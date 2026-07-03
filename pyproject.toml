@@ -1,0 +1,34 @@
+[project]
+name = "data-scientist"
+version = "0.1.0"
+description = "Portfolio de projetos de ciencia de dados aplicada."
+readme = "README.md"
+requires-python = ">=3.13"
+license = "GPL-3.0-only"
+authors = [
+    { name = "Alexsander Lopes Camargos", email = "alcamargos@vivaldi.net" },
+]
+dependencies = [
+    "duckdb",
+    "kaggle",
+    "lxml",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "pandas-datareader",
+    "plotly",
+    "pyreadr",
+    "quantstats",
+    "requests",
+    "seaborn",
+    "sidrapy",
+    "statsmodels",
+    "yfinance",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel",
+    "ipython",
+    "nbformat",
+]
