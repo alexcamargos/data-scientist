@@ -24,6 +24,10 @@ Esta etapa lê o CSV bruto baixado do Kaggle e gera `data/bronze/oscar_best_pict
 - `Outstanding Production`
 - variações históricas equivalentes configuradas no código
 
+## Enriquecimento via TMDb
+
+O runtime é preenchido na camada `silver` por uma etapa de enriquecimento via API do TMDb. Para controlar custo e rate limiting, a etapa só consulta a API para filmes cujo campo `runtime_minutes` está ausente ou nulo, ou seja, os indicados ao Oscar que não receberam runtime em uma etapa anterior de match com IMDb. As respostas ficam em cache local em `data/raw/tmdb/runtime_cache`, evitando chamadas repetidas para o mesmo título/ano.
+
 ## Uso com a venv existente
 
 Execute a partir da raiz do repositório:
@@ -56,6 +60,26 @@ Também é possível usar o subcomando:
 .\.venv\Scripts\python.exe cinematic_chronos\scripts\run_extract.py process-bronze
 ```
 
+Para conferir quantos filmes exigiriam TMDb sem chamar a API:
+
+```powershell
+.\.venv\Scripts\python.exe cinematic_chronos\scripts\run_enrich_tmdb_runtime.py --dry-run
+```
+
+Para enriquecer runtime com TMDb:
+
+```powershell
+Copy-Item cinematic_chronos\.env.example cinematic_chronos\.env
+# edite cinematic_chronos\.env e preencha TMDB_API_KEY
+.\.venv\Scripts\python.exe cinematic_chronos\scripts\run_enrich_tmdb_runtime.py
+```
+
+Também é possível usar o subcomando:
+
+```powershell
+.\.venv\Scripts\python.exe cinematic_chronos\scripts\run_extract.py enrich-tmdb-runtime
+```
+
 ## Kaggle
 
 A ingestão do Kaggle depende do cliente oficial e de credenciais locais. Instale na venv principal e configure `KAGGLE_USERNAME`/`KAGGLE_KEY` ou `%USERPROFILE%\.kaggle\kaggle.json`:
@@ -73,8 +97,10 @@ O dataset pode ser alterado em `config/ingestion.json`, no campo `kaggle.dataset
 cinematic_chronos/
   config/ingestion.json
   scripts/run_extract.py
+  scripts/run_enrich_tmdb_runtime.py
   scripts/run_process_bronze.py
   src/cinematic_chronos/ingestion.py
+  src/cinematic_chronos/processing.py
   tests/test_ingestion.py
 ```
 
