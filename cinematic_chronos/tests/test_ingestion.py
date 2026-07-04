@@ -235,7 +235,8 @@ class IngestionTestCase(unittest.TestCase):
             )
 
             with patch(
-                "cinematic_chronos.processing.TmdbRuntimeClient", FakeRuntimeClient
+                "cinematic_chronos.processing.runtime_enrichment.TmdbRuntimeClient",
+                FakeRuntimeClient,
             ):
                 result = enrich_tmdb_runtime(load_config(config_path))
 

@@ -99,8 +99,14 @@ cinematic_chronos/
   scripts/run_extract.py
   scripts/run_enrich_tmdb_runtime.py
   scripts/run_process_bronze.py
-  src/cinematic_chronos/ingestion.py
-  src/cinematic_chronos/processing.py
+  src/cinematic_chronos/cli.py
+  src/cinematic_chronos/config.py
+  src/cinematic_chronos/models.py
+  src/cinematic_chronos/storage.py
+  src/cinematic_chronos/clients/tmdb.py
+  src/cinematic_chronos/ingestion/
+  src/cinematic_chronos/processing/
+  src/cinematic_chronos/utils/
   tests/test_ingestion.py
 ```
 

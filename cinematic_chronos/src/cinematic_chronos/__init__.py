@@ -10,6 +10,9 @@ from cinematic_chronos.ingestion import (
 )
 from cinematic_chronos.processing import (
     ProcessingResult,
+    RuntimeEnrichmentResult,
+    TmdbRuntimeClient,
+    enrich_tmdb_runtime,
     filter_best_picture_nominees,
     process_bronze,
 )
@@ -20,6 +23,9 @@ __all__ = [
     "KaggleDatasetDownloader",
     "LocalRawStore",
     "ProcessingResult",
+    "RuntimeEnrichmentResult",
+    "TmdbRuntimeClient",
+    "enrich_tmdb_runtime",
     "filter_best_picture_nominees",
     "ingest_all",
     "load_config",
