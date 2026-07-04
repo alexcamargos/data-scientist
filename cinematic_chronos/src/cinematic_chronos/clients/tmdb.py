@@ -67,9 +67,19 @@ class TmdbRuntimeClient:
         """
 
         cache_path = self.cache_dir / f"{_cache_key(title, year)}.json"
-        if cache_path.exists():
+        legacy_cache_path = self.cache_dir / f"{_legacy_cache_key(title, year)}.json"
+        readable_cache_path = _resolve_cache_path(cache_path, legacy_cache_path)
+        if readable_cache_path.exists():
+            if readable_cache_path == legacy_cache_path and not cache_path.exists():
+                LOGGER.info(
+                    "Migrating TMDb cache key: source=%s target=%s",
+                    legacy_cache_path,
+                    cache_path,
+                )
+                legacy_cache_path.replace(cache_path)
+                readable_cache_path = cache_path
             LOGGER.debug("Reading TMDb cache: %s", cache_path)
-            cached = json.loads(cache_path.read_text(encoding="utf-8"))
+            cached = json.loads(readable_cache_path.read_text(encoding="utf-8"))
             if year and cached.get("runtime_minutes") is None:
                 LOGGER.info(
                     "Retrying cached TMDb miss with fallback search: title=%s",
@@ -215,8 +225,52 @@ def _cache_key(title: str, year: int | None) -> str:
         Filesystem-safe cache key.
     """
 
-    normalized = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+    normalized = _normalize_cache_title(title)
+    return f"{year}-{normalized}" if year else normalized
+
+
+def _legacy_cache_key(title: str, year: int | None) -> str:
+    """Build the former title/year cache key for compatibility.
+
+    Args:
+        title: Movie title.
+        year: Optional release year.
+
+    Returns:
+        Former filesystem-safe cache key.
+    """
+
+    normalized = _normalize_cache_title(title)
     return f"{normalized}-{year}" if year else normalized
+
+
+def _normalize_cache_title(title: str) -> str:
+    """Normalize a movie title for filesystem-safe cache names.
+
+    Args:
+        title: Movie title.
+
+    Returns:
+        Lowercase slug for the movie title.
+    """
+
+    return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+
+
+def _resolve_cache_path(cache_path: Path, legacy_cache_path: Path) -> Path:
+    """Choose the cache file to read, preferring the current naming pattern.
+
+    Args:
+        cache_path: Current cache path using year-title naming.
+        legacy_cache_path: Former cache path using title-year naming.
+
+    Returns:
+        Existing current path, existing legacy path, or current path for misses.
+    """
+
+    if cache_path.exists() or not legacy_cache_path.exists():
+        return cache_path
+    return legacy_cache_path
 
 
 def _title_variants(title: str) -> list[str]:

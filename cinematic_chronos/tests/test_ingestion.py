@@ -279,11 +279,48 @@ class IngestionTestCase(unittest.TestCase):
 
             self.assertEqual(first["runtime_minutes"], 132)
             self.assertEqual(second["runtime_minutes"], 132)
+            self.assertTrue(Path(temp_dir).joinpath("2019-parasite.json").exists())
             self.assertTrue(first["from_api"])
             self.assertFalse(second["from_api"])
             self.assertEqual(first["api_calls"], 2)
             self.assertEqual(second["api_calls"], 0)
             self.assertEqual(session.call_count, 2)
+
+    def test_tmdb_runtime_client_reads_and_migrates_legacy_cache_name(self) -> None:
+        """Verify that title-year cache files are reused without API calls."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cache_dir = Path(temp_dir)
+            legacy_path = cache_dir / "parasite-2019.json"
+            current_path = cache_dir / "2019-parasite.json"
+            legacy_path.write_text(
+                json.dumps(
+                    {
+                        "title": "Parasite",
+                        "year": 2019,
+                        "runtime_minutes": 132,
+                        "tmdb_id": 496243,
+                        "api_calls": 2,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            session = FakeTmdbSession()
+            client = TmdbRuntimeClient(
+                api_key="token",
+                cache_dir=cache_dir,
+                request_interval_seconds=0,
+                session=session,
+            )
+
+            result = client.get_runtime("Parasite", 2019)
+
+            self.assertEqual(result["runtime_minutes"], 132)
+            self.assertEqual(result["api_calls"], 0)
+            self.assertFalse(result["from_api"])
+            self.assertEqual(session.call_count, 0)
+            self.assertFalse(legacy_path.exists())
+            self.assertTrue(current_path.exists())
 
     def test_tmdb_runtime_client_retries_cached_miss_without_year(self) -> None:
         """Verify that cached misses are retried without year constraints."""
@@ -316,6 +353,12 @@ class IngestionTestCase(unittest.TestCase):
             self.assertTrue(result["matched_without_year"])
             self.assertEqual(result["api_calls"], 3)
             self.assertEqual(session.call_count, 3)
+            self.assertFalse(
+                cache_dir.joinpath("the-broadway-melody-1928.json").exists()
+            )
+            self.assertTrue(
+                cache_dir.joinpath("1928-the-broadway-melody.json").exists()
+            )
 
     def test_tmdb_runtime_client_retries_possessive_title_variant(self) -> None:
         """Verify that possessive titles are retried with a shorter variant."""
