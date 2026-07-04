@@ -26,7 +26,7 @@ Esta etapa lê o CSV bruto baixado do Kaggle e gera `data/bronze/oscar_best_pict
 
 ## Enriquecimento via TMDb
 
-O runtime é preenchido na camada `silver` por uma etapa de enriquecimento via API do TMDb. Para controlar custo e rate limiting, a etapa só consulta a API para filmes cujo campo `runtime_minutes` está ausente ou nulo, ou seja, os indicados ao Oscar que não receberam runtime em uma etapa anterior de match com IMDb. As respostas ficam em cache local em `data/raw/tmdb/runtime_cache`, evitando chamadas repetidas para o mesmo título/ano.
+O runtime é preenchido na camada `gold` por uma etapa de enriquecimento via API do TMDb. Para controlar custo e rate limiting, a etapa só consulta a API para filmes cujo campo `runtime_minutes` está ausente ou nulo, ou seja, os indicados ao Oscar que não receberam runtime em uma etapa anterior de match com IMDb. As respostas ficam em cache local em `data/raw/tmdb/runtime_cache`, evitando chamadas repetidas para o mesmo título/ano.
 
 ## Uso com a venv existente
 

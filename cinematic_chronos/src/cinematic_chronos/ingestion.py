@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# encoding: utf-8
 """Raw batch ingestion for Kaggle Oscar data."""
 
 from __future__ import annotations
@@ -7,6 +6,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import logging
 import shutil
 import subprocess
 import sys
@@ -15,8 +15,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from cinematic_chronos.cli_logging import configure_cli_logging
 
 DEFAULT_CONFIG = Path(__file__).resolve().parents[2] / "config" / "ingestion.json"
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -41,6 +43,7 @@ class IngestionConfig:
     raw_data_dir: Path
     bronze_data_dir: Path
     silver_data_dir: Path
+    gold_data_dir: Path
     manifest_path: Path
     kaggle_dataset_slug: str
     kaggle_target_dir: str
@@ -74,6 +77,7 @@ def load_config(config_path: Path = DEFAULT_CONFIG) -> IngestionConfig:
 
     config_path = config_path.resolve()
     project_dir = config_path.parents[1]
+    LOGGER.debug("Loading ingestion config from %s", config_path)
     with config_path.open(encoding="utf-8") as config_file:
         config: dict[str, Any] = json.load(config_file)
 
@@ -83,19 +87,27 @@ def load_config(config_path: Path = DEFAULT_CONFIG) -> IngestionConfig:
         project_dir,
         config.get("silver_data_dir", "data/silver"),
     )
+    gold_data_dir = _resolve_project_path(
+        project_dir,
+        config.get("gold_data_dir", "data/gold"),
+    )
     manifest_path = _resolve_project_path(project_dir, config["manifest_path"])
     tmdb_config = config.get("tmdb", {})
     tmdb_cache_dir = _resolve_project_path(
         project_dir,
         tmdb_config.get("cache_dir", "data/raw/tmdb/runtime_cache"),
     )
-    tmdb_env_path = _resolve_project_path(project_dir, tmdb_config.get("env_path", ".env"))
+    tmdb_env_path = _resolve_project_path(
+        project_dir,
+        tmdb_config.get("env_path", ".env"),
+    )
 
     return IngestionConfig(
         project_dir=project_dir,
         raw_data_dir=raw_data_dir,
         bronze_data_dir=bronze_data_dir,
         silver_data_dir=silver_data_dir,
+        gold_data_dir=gold_data_dir,
         manifest_path=manifest_path,
         kaggle_dataset_slug=config["kaggle"]["dataset_slug"],
         kaggle_target_dir=config["kaggle"]["target_dir"],
@@ -104,7 +116,9 @@ def load_config(config_path: Path = DEFAULT_CONFIG) -> IngestionConfig:
         tmdb_api_key_env=tmdb_config.get("api_key_env", "TMDB_API_KEY"),
         tmdb_cache_dir=tmdb_cache_dir,
         tmdb_language=tmdb_config.get("language", "en-US"),
-        tmdb_request_interval_seconds=float(tmdb_config.get("request_interval_seconds", 0.25)),
+        tmdb_request_interval_seconds=float(
+            tmdb_config.get("request_interval_seconds", 0.25),
+        ),
     )
 
 
@@ -127,21 +141,38 @@ class KaggleDatasetDownloader:
         target_path = store.path_for("kaggle", target_dir)
         source = "kaggle.oscar_awards"
         if dry_run:
+            LOGGER.info(
+                "Dry run: resolved Kaggle dataset %s to %s",
+                dataset_slug,
+                target_path,
+            )
             return _result(source, target_path, "dry-run", source_uri=dataset_slug)
 
         if target_path.exists() and any(target_path.iterdir()) and not force:
+            LOGGER.info(
+                "Skipping Kaggle download because %s already has files",
+                target_path,
+            )
             result = _result(
                 source,
                 target_path,
                 "skipped",
                 source_uri=dataset_slug,
-                message="Target directory already contains files. Use --force to refresh it.",
+                message=(
+                    "Target directory already contains files. "
+                    "Use --force to refresh it."
+                ),
             )
             store.record(result)
             return result
 
         target_path.mkdir(parents=True, exist_ok=True)
         command = self._build_command(dataset_slug, target_path, unzip, force)
+        LOGGER.info(
+            "Starting Kaggle download: dataset=%s target=%s",
+            dataset_slug,
+            target_path,
+        )
         try:
             completed = subprocess.run(
                 command,
@@ -159,8 +190,11 @@ class KaggleDatasetDownloader:
             ) from error
 
         bytes_written = sum(
-            file_path.stat().st_size for file_path in target_path.rglob("*") if file_path.is_file()
+            file_path.stat().st_size
+            for file_path in target_path.rglob("*")
+            if file_path.is_file()
         )
+        LOGGER.info("Finished Kaggle download: bytes_written=%s", bytes_written)
         result = _result(
             source,
             target_path,
@@ -186,7 +220,9 @@ class KaggleDatasetDownloader:
         else:
             raise RuntimeError(_missing_kaggle_message())
 
-        command.extend(["datasets", "download", "-d", dataset_slug, "-p", str(target_path)])
+        command.extend(
+            ["datasets", "download", "-d", dataset_slug, "-p", str(target_path)],
+        )
         if unzip:
             command.append("--unzip")
         if force:
@@ -194,11 +230,14 @@ class KaggleDatasetDownloader:
         return command
 
 
-def ingest_all(config: IngestionConfig, *, force: bool, dry_run: bool) -> list[DownloadResult]:
+def ingest_all(
+    config: IngestionConfig, *, force: bool, dry_run: bool
+) -> list[DownloadResult]:
     """Run the configured batch extract jobs."""
 
+    LOGGER.info("Starting extract jobs")
     store = LocalRawStore(config.raw_data_dir, config.manifest_path)
-    return [
+    results = [
         KaggleDatasetDownloader().download(
             store,
             config.kaggle_dataset_slug,
@@ -208,17 +247,33 @@ def ingest_all(config: IngestionConfig, *, force: bool, dry_run: bool) -> list[D
             dry_run=dry_run,
         )
     ]
+    LOGGER.info("Finished extract jobs: jobs=%s", len(results))
+    return results
 
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    if not argv or argv[0] not in {"extract", "process-bronze", "enrich-tmdb-runtime", "-h", "--help"}:
+    commands = {"extract", "process-bronze", "enrich-tmdb-runtime", "-h", "--help"}
+    if not argv or argv[0] not in commands:
         argv.insert(0, "extract")
 
-    parser = argparse.ArgumentParser(description="Run Cinematic Chronos data pipeline tasks.")
+    parser = argparse.ArgumentParser(
+        description="Run Cinematic Chronos data pipeline tasks.",
+    )
+    logging_parent = argparse.ArgumentParser(add_help=False)
+    logging_parent.add_argument(
+        "--log-level",
+        choices=("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"),
+        default="INFO",
+        help="Minimum log level emitted to stderr.",
+    )
     subparsers = parser.add_subparsers(dest="command")
 
-    extract_parser = subparsers.add_parser("extract", help="Run raw Kaggle ingestion.")
+    extract_parser = subparsers.add_parser(
+        "extract",
+        help="Run raw Kaggle ingestion.",
+        parents=[logging_parent],
+    )
     extract_parser.add_argument(
         "--config",
         type=Path,
@@ -231,7 +286,11 @@ def main(argv: list[str] | None = None) -> int:
         default="kaggle",
         help="Source to ingest.",
     )
-    extract_parser.add_argument("--force", action="store_true", help="Refresh existing raw files.")
+    extract_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Refresh existing raw files.",
+    )
     extract_parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -241,6 +300,7 @@ def main(argv: list[str] | None = None) -> int:
     bronze_parser = subparsers.add_parser(
         "process-bronze",
         help="Filter Kaggle Oscar data to Best Picture nominees.",
+        parents=[logging_parent],
     )
     bronze_parser.add_argument(
         "--config",
@@ -251,7 +311,11 @@ def main(argv: list[str] | None = None) -> int:
 
     tmdb_parser = subparsers.add_parser(
         "enrich-tmdb-runtime",
-        help="Use TMDb to fill runtime only for Oscar movies without an IMDb runtime match.",
+        help=(
+            "Use TMDb to fill runtime only for Oscar movies without "
+            "an IMDb runtime match."
+        ),
+        parents=[logging_parent],
     )
     tmdb_parser.add_argument(
         "--config",
@@ -265,17 +329,26 @@ def main(argv: list[str] | None = None) -> int:
         help="Report how many movies would require TMDb without calling the API.",
     )
     args = parser.parse_args(argv)
+    configure_cli_logging(args.log_level)
 
     config = load_config(args.config)
     if args.command == "process-bronze":
         from cinematic_chronos.processing import process_bronze
 
+        LOGGER.info("Running command: process-bronze")
         print(json.dumps(asdict(process_bronze(config)), ensure_ascii=False))
     elif args.command == "enrich-tmdb-runtime":
         from cinematic_chronos.processing import enrich_tmdb_runtime
 
-        print(json.dumps(asdict(enrich_tmdb_runtime(config, dry_run=args.dry_run)), ensure_ascii=False))
+        LOGGER.info("Running command: enrich-tmdb-runtime")
+        print(
+            json.dumps(
+                asdict(enrich_tmdb_runtime(config, dry_run=args.dry_run)),
+                ensure_ascii=False,
+            )
+        )
     else:
+        LOGGER.info("Running command: extract")
         results = ingest_all(config, force=args.force, dry_run=args.dry_run)
         for result in results:
             print(json.dumps(asdict(result), ensure_ascii=False))

@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-# encoding: utf-8
 """Medallion processing steps for Cinematic Chronos."""
 
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import time
@@ -18,6 +18,7 @@ import requests
 
 from cinematic_chronos.ingestion import IngestionConfig
 
+LOGGER = logging.getLogger(__name__)
 
 BEST_PICTURE_CATEGORIES = {
     "best picture",
@@ -64,13 +65,25 @@ class RuntimeEnrichmentResult:
 def process_bronze(config: IngestionConfig) -> ProcessingResult:
     """Create the bronze Oscar Best Picture nominees dataset from Kaggle raw files."""
 
-    source_path = _find_oscar_csv(config.raw_data_dir / "kaggle" / config.kaggle_target_dir)
+    LOGGER.info("Starting bronze processing")
+    source_path = _find_oscar_csv(
+        config.raw_data_dir / "kaggle" / config.kaggle_target_dir
+    )
     output_path = config.bronze_data_dir / "oscar_best_picture_nominees.parquet"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    LOGGER.info("Reading raw Oscar CSV: %s", source_path)
     raw_data = pd.read_csv(source_path)
     bronze_data = filter_best_picture_nominees(raw_data)
-    bronze_data.to_parquet(output_path, index=False, engine="pyarrow", compression="zstd")
+    bronze_data.to_parquet(
+        output_path, index=False, engine="pyarrow", compression="zstd"
+    )
+    LOGGER.info(
+        "Finished bronze processing: rows_read=%s rows_written=%s target=%s",
+        len(raw_data),
+        len(bronze_data),
+        output_path,
+    )
 
     return ProcessingResult(
         layer="bronze",
@@ -82,14 +95,21 @@ def process_bronze(config: IngestionConfig) -> ProcessingResult:
     )
 
 
-def enrich_tmdb_runtime(config: IngestionConfig, *, dry_run: bool = False) -> RuntimeEnrichmentResult:
+def enrich_tmdb_runtime(
+    config: IngestionConfig,
+    *,
+    dry_run: bool = False,
+) -> RuntimeEnrichmentResult:
     """Fill runtime for Oscar nominees without an existing IMDb runtime match."""
 
+    LOGGER.info("Starting TMDb runtime enrichment")
     source_path = config.bronze_data_dir / "oscar_best_picture_nominees.parquet"
     if not source_path.exists():
-        raise FileNotFoundError(f"Bronze dataset not found: {source_path}. Run process-bronze first.")
+        raise FileNotFoundError(
+            f"Bronze dataset not found: {source_path}. Run process-bronze first."
+        )
 
-    output_path = config.silver_data_dir / "oscar_best_picture_nominees_runtime.parquet"
+    output_path = config.gold_data_dir / "oscar_best_picture_nominees_runtime.parquet"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     data = pd.read_parquet(source_path, engine="pyarrow")
@@ -102,8 +122,17 @@ def enrich_tmdb_runtime(config: IngestionConfig, *, dry_run: bool = False) -> Ru
         enriched["tmdb_id"] = pd.NA
 
     movie_column = _find_column(enriched, candidates=("film", "movie", "title", "name"))
-    year_column = _optional_column(enriched, candidates=("year_film", "year", "ceremony_year"))
+    year_column = _optional_column(
+        enriched,
+        candidates=("year_film", "year", "ceremony_year"),
+    )
     tmdb_candidates = enriched["runtime_minutes"].isna()
+    LOGGER.info(
+        "Loaded bronze data: rows=%s tmdb_candidates=%s dry_run=%s",
+        len(enriched),
+        int(tmdb_candidates.sum()),
+        dry_run,
+    )
 
     tmdb_calls = 0
     runtimes_found = 0
@@ -111,7 +140,8 @@ def enrich_tmdb_runtime(config: IngestionConfig, *, dry_run: bool = False) -> Ru
         api_key = _load_secret(config.tmdb_api_key_env, config.tmdb_env_path)
         if not api_key:
             raise RuntimeError(
-                f"TMDb API key not found. Set {config.tmdb_api_key_env} in {config.tmdb_env_path} "
+                f"TMDb API key not found. Set {config.tmdb_api_key_env} "
+                f"in {config.tmdb_env_path} "
                 "or export it as an environment variable before running enrichment."
             )
 
@@ -121,9 +151,17 @@ def enrich_tmdb_runtime(config: IngestionConfig, *, dry_run: bool = False) -> Ru
             language=config.tmdb_language,
             request_interval_seconds=config.tmdb_request_interval_seconds,
         )
-        for index, row in enriched.loc[tmdb_candidates].iterrows():
+        candidates = enriched.loc[tmdb_candidates]
+        for position, (index, row) in enumerate(candidates.iterrows(), start=1):
             title = str(row[movie_column]).strip()
             year = _parse_year(row[year_column]) if year_column else None
+            LOGGER.info(
+                "Fetching TMDb runtime %s/%s: title=%s year=%s",
+                position,
+                len(candidates),
+                title,
+                year,
+            )
             result = client.get_runtime(title, year)
             tmdb_calls += int(result["api_calls"])
             runtime = result.get("runtime_minutes")
@@ -132,12 +170,28 @@ def enrich_tmdb_runtime(config: IngestionConfig, *, dry_run: bool = False) -> Ru
                 enriched.at[index, "runtime_source"] = "tmdb"
                 enriched.at[index, "tmdb_id"] = result.get("tmdb_id")
                 runtimes_found += 1
+                LOGGER.info(
+                    "Runtime found in TMDb: title=%s runtime_minutes=%s",
+                    title,
+                    runtime,
+                )
+            else:
+                LOGGER.warning(
+                    "Runtime not found in TMDb: title=%s year=%s",
+                    title,
+                    year,
+                )
 
     if not dry_run:
-        enriched.to_parquet(output_path, index=False, engine="pyarrow", compression="zstd")
+        enriched.to_parquet(
+            output_path, index=False, engine="pyarrow", compression="zstd"
+        )
+        LOGGER.info("Wrote enriched dataset: %s", output_path)
+    else:
+        LOGGER.info("Dry run finished without writing dataset: target=%s", output_path)
 
     return RuntimeEnrichmentResult(
-        layer="silver",
+        layer="gold",
         source_path=str(source_path),
         target_path=str(output_path),
         rows_read=len(data),
@@ -174,16 +228,67 @@ class TmdbRuntimeClient:
     def get_runtime(self, title: str, year: int | None) -> dict[str, Any]:
         cache_path = self.cache_dir / f"{_cache_key(title, year)}.json"
         if cache_path.exists():
+            LOGGER.debug("Reading TMDb cache: %s", cache_path)
             cached = json.loads(cache_path.read_text(encoding="utf-8"))
+            if year and cached.get("runtime_minutes") is None:
+                LOGGER.info(
+                    "Retrying cached TMDb miss with fallback search: title=%s",
+                    title,
+                )
+                payload = self._fetch_runtime_with_fallbacks(title, year)
+                cache_path.write_text(
+                    json.dumps(payload, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                return payload
             cached["api_calls"] = 0
             cached["from_api"] = False
             return cached
 
-        payload = self._fetch_runtime(title, year)
-        cache_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-        payload["api_calls"] = int(payload["api_calls"])
-        payload["from_api"] = True
+        LOGGER.debug("TMDb cache miss: title=%s year=%s", title, year)
+        payload = self._fetch_runtime_with_fallbacks(title, year)
+        cache_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
         return payload
+
+    def _fetch_runtime_with_fallbacks(
+        self,
+        title: str,
+        year: int | None,
+    ) -> dict[str, Any]:
+        attempts: list[tuple[str, int | None, bool]] = [(title, year, False)]
+        if year:
+            attempts.append((title, None, False))
+        attempts.extend((variant, None, True) for variant in _title_variants(title))
+
+        api_calls = 0
+        last_payload: dict[str, Any] | None = None
+        for candidate_title, candidate_year, title_variant in attempts:
+            payload = self._fetch_runtime(candidate_title, candidate_year)
+            api_calls += int(payload["api_calls"])
+            last_payload = payload
+            if payload.get("runtime_minutes") is not None:
+                payload["api_calls"] = api_calls
+                payload["from_api"] = True
+                payload["matched_without_year"] = (
+                    candidate_year is None and year is not None
+                )
+                payload["matched_title_variant"] = title_variant
+                payload["requested_title"] = title
+                return payload
+
+        fallback_payload = last_payload or {
+            "title": title,
+            "year": year,
+            "runtime_minutes": None,
+            "tmdb_id": None,
+        }
+        fallback_payload["api_calls"] = api_calls
+        fallback_payload["from_api"] = True
+        fallback_payload["requested_title"] = title
+        return fallback_payload
 
     def _fetch_runtime(self, title: str, year: int | None) -> dict[str, Any]:
         search_params: dict[str, Any] = {
@@ -245,7 +350,9 @@ def filter_best_picture_nominees(data: pd.DataFrame) -> pd.DataFrame:
     movie_column = _find_column(data, candidates=("film", "movie", "title", "name"))
 
     category = data[category_column].fillna("").astype(str).str.strip().str.lower()
-    best_picture = data[category_column].notna() & category.isin(BEST_PICTURE_CATEGORIES)
+    best_picture = data[category_column].notna() & category.isin(
+        BEST_PICTURE_CATEGORIES
+    )
     filtered = data.loc[best_picture].copy()
 
     filtered[movie_column] = filtered[movie_column].fillna("").astype(str).str.strip()
@@ -262,7 +369,9 @@ def _find_oscar_csv(raw_kaggle_dir: Path) -> Path:
 
     csv_files = sorted(raw_kaggle_dir.glob("*.csv"))
     if not csv_files:
-        raise FileNotFoundError(f"No CSV files found in raw Kaggle directory: {raw_kaggle_dir}")
+        raise FileNotFoundError(
+            f"No CSV files found in raw Kaggle directory: {raw_kaggle_dir}"
+        )
 
     preferred = [
         csv_file
@@ -282,7 +391,12 @@ def _find_column(
         column = normalized_columns.get(_normalize_column(candidate))
         if column and (
             required_content is None
-            or data[column].fillna("").astype(str).str.lower().str.contains(required_content).any()
+            or data[column]
+            .fillna("")
+            .astype(str)
+            .str.lower()
+            .str.contains(required_content)
+            .any()
         ):
             return column
 
@@ -312,6 +426,13 @@ def _parse_year(value: object) -> int | None:
 def _cache_key(title: str, year: int | None) -> str:
     normalized = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
     return f"{normalized}-{year}" if year else normalized
+
+
+def _title_variants(title: str) -> list[str]:
+    possessive_match = re.search(r"'s\s+(.+)$", title)
+    if not possessive_match:
+        return []
+    return [possessive_match.group(1).strip()]
 
 
 def _load_secret(name: str, env_path: Path) -> str | None:

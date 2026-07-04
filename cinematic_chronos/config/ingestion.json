@@ -2,6 +2,7 @@
   "raw_data_dir": "data/raw",
   "bronze_data_dir": "data/bronze",
   "silver_data_dir": "data/silver",
+  "gold_data_dir": "data/gold",
   "manifest_path": "data/raw/manifest.jsonl",
   "kaggle": {
     "dataset_slug": "unanimad/the-oscar-award",
