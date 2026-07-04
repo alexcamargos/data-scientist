@@ -79,6 +79,12 @@ cinematic_chronos/
     run_extract.py
     run_process_bronze.py
     run_enrich_tmdb_runtime.py
+  notebooks/
+    01_eda_gold_understanding.ipynb
+    02_runtime_over_time_visual_analysis.ipynb
+    03_statistical_inference_runtime_trend.ipynb
+    04_temporal_context_decade_splines.ipynb
+    05_robustness_annual_aggregation.ipynb
   src/cinematic_chronos/
     clients/
       tmdb.py
@@ -109,7 +115,9 @@ flowchart LR
     Bronze --> Gold["Gold: runtime enriquecido"]
     TMDb["TMDb API"] --> Cache["Cache local de respostas"]
     Cache --> Gold
-    Gold --> Analysis["Análise estatística: regressão linear"]
+    Gold --> EDA["EDA e visualizações"]
+    Gold --> Inference["Inferência estatística"]
+    Inference --> Robustness["Robustez: décadas, splines e agregação anual"]
 ```
 
 ## Decisões de Arquitetura
@@ -223,6 +231,25 @@ Ou via CLI:
 .\.venv\Scripts\python.exe cinematic_chronos\scripts\run_extract.py enrich-tmdb-runtime
 ```
 
+### 5. Executar notebooks analíticos
+
+Os notebooks consomem a camada `gold` em `cinematic_chronos/data/gold/oscar_best_picture_nominees_runtime.parquet`.
+
+Abra os notebooks em um ambiente Jupyter compatível, como VS Code, JupyterLab ou Notebook. Caso queira usar JupyterLab a partir deste ambiente virtual, instale a interface antes:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install jupyterlab
+.\.venv\Scripts\python.exe -m jupyter lab cinematic_chronos\notebooks
+```
+
+Ordem recomendada:
+
+1. `01_eda_gold_understanding.ipynb`: entendimento completo da base gold, schema, completude, distribuição e qualidade.
+2. `02_runtime_over_time_visual_analysis.ipynb`: visualizações temporais da duração dos filmes.
+3. `03_statistical_inference_runtime_trend.ipynb`: regressão linear simples para responder à pergunta central do projeto.
+4. `04_temporal_context_decade_splines.ipynb`: modelos por década, efeitos de período e splines para avaliar não linearidade.
+5. `05_robustness_annual_aggregation.ipynb`: regressão robusta, agregação anual, erros robustos e influência de outliers.
+
 ## Qualidade e Testes
 
 Os testes cobrem configuração, armazenamento local, dry-run de Kaggle, filtro de Melhor Filme, escrita Parquet da bronze, enriquecimento TMDb, leitura de segredo via `.env`, cache e fallbacks de busca.
@@ -231,15 +258,17 @@ Os testes cobrem configuração, armazenamento local, dry-run de Kaggle, filtro 
 .\.venv\Scripts\python.exe -m unittest discover -s cinematic_chronos\tests
 ```
 
-## Análise Estatística Planejada
+## Notebooks Analíticos
 
-A etapa analítica deve consumir `data/gold/oscar_best_picture_nominees_runtime.parquet` e executar:
+A etapa analítica consome `data/gold/oscar_best_picture_nominees_runtime.parquet` e está organizada em cinco notebooks complementares:
 
-1. Validação de completude de `year_film` e `runtime_minutes`.
-2. Análise exploratória da distribuição de durações por ano ou década.
-3. Ajuste de Regressão Linear Simples com `statsmodels`.
-4. Avaliação do coeficiente `beta_1`, intervalo de confiança, p-valor e diagnósticos de resíduos.
-5. Comunicação da decisão estatística: rejeitar ou não rejeitar `H0`.
+- `01_eda_gold_understanding.ipynb`: valida schema, completude, granularidade, duplicidades, distribuição geral de durações e diferenças por década e por status de vencedor.
+- `02_runtime_over_time_visual_analysis.ipynb`: mostra graficamente o comportamento da duração ao longo do tempo, com pontos individuais, médias anuais, medianas, médias móveis, faixas interquartis e heatmap por faixas de duração.
+- `03_statistical_inference_runtime_trend.ipynb`: ajusta a Regressão Linear Simples `runtime_minutes ~ year_film`, avalia `beta_1`, p-valor, intervalo de confiança, `R²` e diagnósticos de resíduos.
+- `04_temporal_context_decade_splines.ipynb`: testa sensibilidade temporal com modelos por década, efeitos fixos de década, interação década-tempo e spline cúbico.
+- `05_robustness_annual_aggregation.ipynb`: verifica se a conclusão permanece usando média anual, mediana anual, WLS, regressões robustas Huber/Tukey, erros padrão robustos e Cook's distance.
+
+O notebook inferencial principal executa o seguinte modelo conceitual:
 
 Exemplo conceitual:
 
@@ -259,6 +288,68 @@ print(model.summary())
 
 O resultado central para a pergunta operacional será o sinal e o p-valor de `year_film`. A conclusão deve separar claramente o achado na proxy dos indicados ao Oscar e a interpretação mais ampla sobre filmes em geral.
 
+## Resultados
+
+Com a base `gold` local atual, a análise considera 621 filmes indicados ao Oscar de Melhor Filme, cobrindo anos de filme de 1927 a 2025. Todos os registros usados na inferência têm `year_film` e `runtime_minutes` preenchidos.
+
+### Resultado Principal
+
+O modelo de Regressão Linear Simples estima:
+
+```text
+runtime_minutes = beta_0 + beta_1 * year_film + epsilon
+```
+
+Resultado para `beta_1`:
+
+- coeficiente estimado: `0.2402` minuto por ano;
+- p-valor: `5.14e-12`;
+- intervalo de confiança de 95%: `[0.1732, 0.3072]`;
+- `R²`: `0.0741`;
+- mudança estimada de 1927 a 2025: aproximadamente `23.5` minutos.
+
+Com `alpha = 0.05`, rejeitamos `H0: beta_1 = 0`. Como o coeficiente é positivo, a evidência estatística sustenta que, dentro da proxy dos indicados ao Oscar de Melhor Filme, a duração média dos filmes aumentou ao longo do tempo.
+
+### Leitura Sênior
+
+O resultado é estatisticamente forte, mas o tamanho explicativo do modelo é moderado. O `R²` de `0.0741` indica que o ano do filme explica uma parcela pequena da variação individual de duração. Isso é esperado: duração de filme depende de gênero, estúdio, diretor, tecnologia, regras industriais, preferências de audiência, orçamento, estratégia de distribuição e outros fatores que não estão no modelo.
+
+A pergunta do projeto, porém, não exige explicar toda a variação de duração. Ela exige testar se existe uma tendência temporal positiva detectável. Nesse ponto, o modelo é consistente: o coeficiente é positivo, o intervalo de confiança não cruza zero e o p-valor é muito inferior a `0.05`.
+
+A estimativa de `0.2402` minuto por ano deve ser lida como tendência média histórica. Em um único ano, o efeito parece pequeno. Ao longo de quase um século, ele acumula aproximadamente `23.5` minutos, magnitude material para a experiência de assistir a um filme.
+
+### Robustez
+
+A conclusão não depende apenas do OLS em nível de filme. As análises complementares mantêm coeficiente positivo e significância estatística:
+
+| Especificação | `beta_1` | p-valor |
+| --- | ---: | ---: |
+| OLS por filme | `0.2402` | `5.14e-12` |
+| OLS por média anual | `0.2198` | `7.50e-05` |
+| OLS por mediana anual | `0.2133` | `2.32e-04` |
+| WLS por média anual | `0.2402` | `1.33e-06` |
+| Regressão robusta Huber | `0.2617` | `1.32e-18` |
+| Regressão robusta Tukey | `0.2665` | `3.29e-19` |
+
+Essa consistência reduz a chance de que a conclusão seja artefato de anos com mais indicados, de filmes extremos ou da escolha específica de um OLS simples.
+
+Os modelos temporais também mostram que representações mais flexíveis capturam estrutura adicional:
+
+| Modelo | AIC | BIC | `R²` |
+| --- | ---: | ---: | ---: |
+| Linear simples | `5836.28` | `5845.15` | `0.0741` |
+| Linear + efeitos de década | `5786.34` | `5839.52` | `0.1727` |
+| Interação década-tempo | `5766.00` | `5863.49` | `0.2248` |
+| Spline cúbico `df=5` | `5782.34` | `5808.92` | `0.1620` |
+
+O spline e os controles por década melhoram o ajuste, sugerindo que a evolução não é perfeitamente descrita por uma reta única. Ainda assim, eles não invalidam a leitura central: a direção histórica estimada é positiva.
+
+### Conclusão Executiva
+
+Na proxy analisada, há evidência estatística robusta de que os filmes indicados ao Oscar de Melhor Filme ficaram mais longos ao longo do tempo. A melhor leitura não é "todo filme está ficando mais longo", mas sim: em uma série histórica pública, auditável e relevante da indústria cinematográfica, há um sinal positivo, estatisticamente significativo e robusto a especificações alternativas.
+
+Essa conclusão é forte como evidência empírica dentro do recorte estudado. Ela não estabelece causalidade e não deve ser generalizada automaticamente para todo o universo de filmes sem uma amostra mais ampla.
+
 ## Limitações
 
 - O recorte de indicados ao Oscar é uma proxy e não representa todos os filmes lançados no mundo.
@@ -269,6 +360,6 @@ O resultado central para a pergunta operacional será o sinal e o p-valor de `ye
 ## Próximos Passos
 
 - Implementar a camada `silver` com schema analítico canônico.
-- Criar notebook ou módulo `analysis` com regressão, gráficos e diagnósticos.
-- Adicionar validações automatizadas de qualidade de dados.
-- Publicar resultados finais com tabela de coeficientes, visualizações e conclusão estatística.
+- Adicionar validações automatizadas de qualidade de dados para a camada `gold`.
+- Evoluir a análise para modelos com covariáveis adicionais, como gênero, estúdio, idioma, orçamento ou receita, caso novas fontes sejam incorporadas.
+- Publicar uma versão executada dos notebooks com gráficos e tabelas renderizados para leitura fora do ambiente local.
