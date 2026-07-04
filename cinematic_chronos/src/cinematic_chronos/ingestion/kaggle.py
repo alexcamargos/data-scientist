@@ -17,9 +17,20 @@ LOGGER = logging.getLogger(__name__)
 
 
 class KaggleDatasetDownloader:
-    """Downloads a Kaggle dataset through the configured Kaggle client."""
+    """Downloads a Kaggle dataset through the configured Kaggle client.
+
+    Attributes:
+        python_executable: Python executable used to invoke ``python -m kaggle``.
+    """
 
     def __init__(self, python_executable: str = sys.executable) -> None:
+        """Initialize the downloader.
+
+        Args:
+            python_executable: Python executable used to invoke the Kaggle
+                module when it is installed in the active environment.
+        """
+
         self.python_executable = python_executable
 
     def download(
@@ -32,6 +43,24 @@ class KaggleDatasetDownloader:
         force: bool = False,
         dry_run: bool = False,
     ) -> DownloadResult:
+        """Download a Kaggle dataset into the local raw store.
+
+        Args:
+            store: Local raw store used to resolve paths and record metadata.
+            dataset_slug: Kaggle dataset slug in ``owner/dataset`` format.
+            target_dir: Directory name under the Kaggle raw data root.
+            unzip: Whether the Kaggle client should unzip downloaded files.
+            force: Whether existing target files should be refreshed.
+            dry_run: Whether to resolve metadata without calling Kaggle.
+
+        Returns:
+            Download metadata for the attempted extract operation.
+
+        Raises:
+            RuntimeError: If the Kaggle client is unavailable or the download
+                command fails.
+        """
+
         target_path = store.path_for("kaggle", target_dir)
         source = "kaggle.oscar_awards"
         if dry_run:
@@ -107,6 +136,21 @@ class KaggleDatasetDownloader:
         unzip: bool,
         force: bool,
     ) -> list[str]:
+        """Build the Kaggle download command.
+
+        Args:
+            dataset_slug: Kaggle dataset slug in ``owner/dataset`` format.
+            target_path: Directory where files should be downloaded.
+            unzip: Whether to pass ``--unzip`` to the Kaggle client.
+            force: Whether to pass ``--force`` to the Kaggle client.
+
+        Returns:
+            Command arguments suitable for ``subprocess.run``.
+
+        Raises:
+            RuntimeError: If no Kaggle client is available.
+        """
+
         if importlib.util.find_spec("kaggle"):
             command = [self.python_executable, "-m", "kaggle"]
         elif shutil.which("kaggle"):
@@ -135,6 +179,22 @@ def _result(
     source_uri: str | None = None,
     message: str | None = None,
 ) -> DownloadResult:
+    """Create standardized download metadata.
+
+    Args:
+        source: Logical source identifier.
+        target_path: Path where data was or would be written.
+        status: Operation status.
+        downloaded_at: Optional ISO timestamp. Defaults to the current UTC time.
+        bytes_written: Number of bytes written to disk.
+        sha256: Optional content hash.
+        source_uri: Optional upstream source URI.
+        message: Optional human-readable details.
+
+    Returns:
+        Download metadata.
+    """
+
     return DownloadResult(
         source=source,
         target_path=str(target_path),
@@ -148,6 +208,12 @@ def _result(
 
 
 def _missing_kaggle_message() -> str:
+    """Build the missing Kaggle client error message.
+
+    Returns:
+        Guidance for installing and configuring the Kaggle client.
+    """
+
     return (
         "Kaggle client is not available. Install it in the project venv with "
         "`python -m pip install kaggle` and configure KAGGLE_USERNAME/KAGGLE_KEY "

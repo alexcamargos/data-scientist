@@ -7,13 +7,29 @@ from pathlib import Path
 
 
 def load_secret(name: str, env_path: Path) -> str | None:
-    """Load a secret from the process environment or a dotenv file."""
+    """Load a secret from the process environment or a dotenv file.
+
+    Args:
+        name: Environment variable name.
+        env_path: Dotenv file path used as a fallback.
+
+    Returns:
+        Secret value when configured.
+    """
 
     return os.environ.get(name) or load_dotenv_value(env_path, name)
 
 
 def load_dotenv_value(env_path: Path, name: str) -> str | None:
-    """Read one variable from a simple dotenv file."""
+    """Read one variable from a simple dotenv file.
+
+    Args:
+        env_path: Dotenv file path.
+        name: Variable name to read.
+
+    Returns:
+        Dotenv value when present.
+    """
 
     if not env_path.exists():
         return None
@@ -32,7 +48,14 @@ def load_dotenv_value(env_path: Path, name: str) -> str | None:
 
 
 def strip_env_quotes(value: str) -> str:
-    """Remove matching single or double quotes from an env value."""
+    """Remove matching single or double quotes from an env value.
+
+    Args:
+        value: Raw environment value.
+
+    Returns:
+        Value without matching surrounding quotes.
+    """
 
     if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
         return value[1:-1]

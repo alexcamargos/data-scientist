@@ -22,7 +22,21 @@ def enrich_tmdb_runtime(
     *,
     dry_run: bool = False,
 ) -> RuntimeEnrichmentResult:
-    """Fill runtime for Oscar nominees without an existing IMDb runtime match."""
+    """Fill runtime for Oscar nominees without an existing IMDb runtime match.
+
+    Args:
+        config: Resolved ingestion configuration.
+        dry_run: Whether to count TMDb candidates without calling the API or
+            writing an output dataset.
+
+    Returns:
+        Runtime enrichment metadata.
+
+    Raises:
+        FileNotFoundError: If the bronze nominees dataset is missing.
+        RuntimeError: If TMDb credentials are required but unavailable.
+        ValueError: If required movie columns cannot be found.
+    """
 
     LOGGER.info("Starting TMDb runtime enrichment")
     source_path = config.bronze_data_dir / "oscar_best_picture_nominees.parquet"
@@ -110,6 +124,19 @@ def _enrich_missing_runtimes(
     movie_column: str,
     year_column: str | None,
 ) -> tuple[int, int]:
+    """Fill missing runtime values in an enriched nominees DataFrame.
+
+    Args:
+        enriched: DataFrame to mutate with TMDb runtime fields.
+        tmdb_candidates: Boolean mask identifying rows that need TMDb lookup.
+        client: Runtime client used for TMDb lookups.
+        movie_column: Column containing movie titles.
+        year_column: Optional column containing release or ceremony years.
+
+    Returns:
+        Pair containing TMDb API call count and number of runtimes found.
+    """
+
     tmdb_calls = 0
     runtimes_found = 0
     candidates = enriched.loc[tmdb_candidates]
@@ -143,6 +170,15 @@ def _enrich_missing_runtimes(
 
 
 def _parse_year(value: object) -> int | None:
+    """Parse the first four-digit year from a value.
+
+    Args:
+        value: Raw year-like value from a DataFrame cell.
+
+    Returns:
+        Parsed year when present.
+    """
+
     if pd.isna(value):
         return None
     match = re.search(r"\d{4}", str(value))

@@ -28,7 +28,18 @@ BEST_PICTURE_CATEGORIES = {
 
 
 def process_bronze(config: IngestionConfig) -> ProcessingResult:
-    """Create the bronze Oscar Best Picture nominees dataset from Kaggle raw files."""
+    """Create the bronze Oscar Best Picture nominees dataset from raw files.
+
+    Args:
+        config: Resolved ingestion configuration.
+
+    Returns:
+        Processing metadata for the bronze output.
+
+    Raises:
+        FileNotFoundError: If the raw Kaggle directory or CSV is missing.
+        ValueError: If required columns cannot be found in the raw dataset.
+    """
 
     LOGGER.info("Starting bronze processing")
     source_path = _find_oscar_csv(
@@ -61,7 +72,17 @@ def process_bronze(config: IngestionConfig) -> ProcessingResult:
 
 
 def filter_best_picture_nominees(data: pd.DataFrame) -> pd.DataFrame:
-    """Filter Oscar records to Best Picture nominees only."""
+    """Filter Oscar records to Best Picture nominees only.
+
+    Args:
+        data: Raw Oscar awards DataFrame.
+
+    Returns:
+        Filtered DataFrame containing Best Picture nominee rows.
+
+    Raises:
+        ValueError: If required category or movie columns cannot be found.
+    """
 
     category_column = find_column(
         data,
@@ -83,6 +104,19 @@ def filter_best_picture_nominees(data: pd.DataFrame) -> pd.DataFrame:
 
 
 def _find_oscar_csv(raw_kaggle_dir: Path) -> Path:
+    """Find the raw Oscar CSV inside a Kaggle extract directory.
+
+    Args:
+        raw_kaggle_dir: Directory containing extracted Kaggle files.
+
+    Returns:
+        Preferred Oscar CSV path.
+
+    Raises:
+        FileNotFoundError: If the raw directory or a compatible CSV file is
+            missing.
+    """
+
     if not raw_kaggle_dir.exists():
         raise FileNotFoundError(
             f"Raw Kaggle directory not found: {raw_kaggle_dir}. Run extract first."

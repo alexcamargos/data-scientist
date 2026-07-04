@@ -10,7 +10,20 @@ def find_column(
     candidates: tuple[str, ...],
     required_content: str | None = None,
 ) -> str:
-    """Find a compatible column by normalized candidate names."""
+    """Find a compatible column by normalized candidate names.
+
+    Args:
+        data: DataFrame whose columns should be searched.
+        candidates: Candidate column names, before normalization.
+        required_content: Optional lowercase text that must appear in at least
+            one value of the matched column.
+
+    Returns:
+        Original DataFrame column name.
+
+    Raises:
+        ValueError: If no compatible column is found.
+    """
 
     normalized_columns = {normalize_column(column): column for column in data.columns}
     for candidate in candidates:
@@ -34,7 +47,15 @@ def find_column(
 
 
 def optional_column(data: pd.DataFrame, candidates: tuple[str, ...]) -> str | None:
-    """Find an optional compatible column by normalized candidate names."""
+    """Find an optional compatible column by normalized candidate names.
+
+    Args:
+        data: DataFrame whose columns should be searched.
+        candidates: Candidate column names, before normalization.
+
+    Returns:
+        Original DataFrame column name when a candidate is present.
+    """
 
     normalized_columns = {normalize_column(column): column for column in data.columns}
     for candidate in candidates:
@@ -45,6 +66,13 @@ def optional_column(data: pd.DataFrame, candidates: tuple[str, ...]) -> str | No
 
 
 def normalize_column(column: object) -> str:
-    """Normalize a column name for candidate matching."""
+    """Normalize a column name for candidate matching.
+
+    Args:
+        column: Raw column label.
+
+    Returns:
+        Lowercase snake_case-like column name.
+    """
 
     return str(column).strip().lower().replace(" ", "_").replace("-", "_")

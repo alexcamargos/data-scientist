@@ -15,7 +15,16 @@ LOGGER = logging.getLogger(__name__)
 def ingest_all(
     config: IngestionConfig, *, force: bool, dry_run: bool
 ) -> list[DownloadResult]:
-    """Run the configured batch extract jobs."""
+    """Run the configured batch extract jobs.
+
+    Args:
+        config: Resolved ingestion configuration.
+        force: Whether existing raw files should be refreshed.
+        dry_run: Whether to resolve targets without downloading files.
+
+    Returns:
+        Download metadata for each extract job.
+    """
 
     LOGGER.info("Starting extract jobs")
     store = LocalRawStore(config.raw_data_dir, config.manifest_path)

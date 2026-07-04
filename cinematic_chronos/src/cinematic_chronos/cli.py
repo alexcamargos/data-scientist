@@ -17,6 +17,16 @@ LOGGER = logging.getLogger(__name__)
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the Cinematic Chronos command-line interface.
+
+    Args:
+        argv: Optional argument vector. When omitted, arguments are read from
+            ``sys.argv``.
+
+    Returns:
+        Process exit code.
+    """
+
     argv = list(sys.argv[1:] if argv is None else argv)
     commands = {"extract", "process-bronze", "enrich-tmdb-runtime", "-h", "--help"}
     if not argv or argv[0] not in commands:

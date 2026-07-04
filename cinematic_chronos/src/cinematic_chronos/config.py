@@ -14,7 +14,24 @@ LOGGER = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class IngestionConfig:
-    """Resolved ingestion settings."""
+    """Resolved ingestion settings.
+
+    Attributes:
+        project_dir: Root directory for the Cinematic Chronos project.
+        raw_data_dir: Directory for raw input data.
+        bronze_data_dir: Directory for bronze datasets.
+        silver_data_dir: Directory for silver datasets.
+        gold_data_dir: Directory for gold datasets.
+        manifest_path: JSON Lines manifest path for extract metadata.
+        kaggle_dataset_slug: Kaggle dataset slug in ``owner/dataset`` format.
+        kaggle_target_dir: Directory name for the Kaggle extract.
+        kaggle_unzip: Whether Kaggle downloads should be unzipped.
+        tmdb_env_path: Dotenv file path for TMDb credentials.
+        tmdb_api_key_env: Environment variable name for the TMDb API key.
+        tmdb_cache_dir: Directory for TMDb response cache files.
+        tmdb_language: TMDb language code.
+        tmdb_request_interval_seconds: Delay between TMDb API requests.
+    """
 
     project_dir: Path
     raw_data_dir: Path
@@ -33,7 +50,14 @@ class IngestionConfig:
 
 
 def load_config(config_path: Path = DEFAULT_CONFIG) -> IngestionConfig:
-    """Load JSON configuration and resolve project-relative paths."""
+    """Load JSON configuration and resolve project-relative paths.
+
+    Args:
+        config_path: Path to the ingestion JSON configuration file.
+
+    Returns:
+        Resolved ingestion configuration.
+    """
 
     config_path = config_path.resolve()
     project_dir = config_path.parents[1]
@@ -75,5 +99,15 @@ def load_config(config_path: Path = DEFAULT_CONFIG) -> IngestionConfig:
 
 
 def _resolve_project_path(project_dir: Path, path_value: str) -> Path:
+    """Resolve a path value relative to the project directory.
+
+    Args:
+        project_dir: Base project directory.
+        path_value: Absolute path or project-relative path from configuration.
+
+    Returns:
+        Resolved absolute or project-relative path object.
+    """
+
     path = Path(path_value)
     return path if path.is_absolute() else project_dir / path
