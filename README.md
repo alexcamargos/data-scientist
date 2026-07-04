@@ -14,6 +14,10 @@ Cada projeto neste portfólio é um testemunho da minha habilidade em converter 
 
 ## Projetos
 
+### [Cinematic Chronos: Os filmes estão ficando mais longos?](cinematic_chronos/README.md)
+
+Projeto de engenharia e ciência de dados para testar, por inferência estatística, se os filmes estão ficando mais longos ao longo do tempo. Como proxy para a produção cinematográfica geral, a análise usa os indicados ao Oscar de Melhor Filme, combinando ingestão via Kaggle, enriquecimento de runtime via TMDb, pipeline em camadas `raw`, `bronze`, `silver` e `gold`, cache local, Parquet e desenho modular orientado por princípios SOLID. A análise final inclui notebooks de EDA, visualização temporal, regressão linear, modelos por década, splines, regressão robusta e agregação anual.
+
 ### [Uma Perspectiva Temporal da Dinâmica Econômica entre Salário Mínimo e Preço do Gás Liquefeito de Petróleo (GLP)](https://nbviewer.org/github/alexcamargos/data-scientist/blob/main/dados-abertos-anp/purchasing_power_GLP_minimum_wage.ipynb)
 
 A análise do poder de compra é uma ferramenta essencial para compreender a dinâmica econômica que afeta diretamente a vida dos cidadãos. Este projeto propõe uma análise comparativa entre o salário mínimo vigente no Brasil e o preço do Gás Liquefeito de Petróleo (GLP). Ao explorar essa relação, buscamos oferecer insights valiosos sobre a ac

@@ -1,0 +1,59 @@
+[project]
+name = "data-scientist"
+version = "0.1.0"
+description = "Portfolio de projetos de ciencia de dados aplicada."
+readme = "README.md"
+requires-python = ">=3.13"
+license = "GPL-3.0-only"
+authors = [
+    { name = "Alexsander Lopes Camargos", email = "alcamargos@vivaldi.net" },
+]
+dependencies = [
+    "duckdb",
+    "kaggle",
+    "lxml",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "pandas-datareader",
+    "plotly",
+    "pyarrow>=24.0.0",
+    "pyreadr",
+    "quantstats",
+    "requests",
+    "seaborn",
+    "sidrapy",
+    "statsmodels",
+    "yfinance",
+]
+
+[dependency-groups]
+dev = [
+    "black",
+    "ipykernel",
+    "ipython",
+    "nbformat",
+    "ruff",
+]
+
+[tool.black]
+line-length = 88
+target-version = ["py313"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "N",
+    "W",
+    "UP",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"cinematic_chronos/scripts/*.py" = ["E402", "I001"]
+"cinematic_chronos/tests/*.py" = ["E402"]

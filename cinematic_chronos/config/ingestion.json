@@ -1,0 +1,19 @@
+{
+  "raw_data_dir": "data/raw",
+  "bronze_data_dir": "data/bronze",
+  "silver_data_dir": "data/silver",
+  "gold_data_dir": "data/gold",
+  "manifest_path": "data/raw/manifest.jsonl",
+  "kaggle": {
+    "dataset_slug": "unanimad/the-oscar-award",
+    "target_dir": "oscar_awards",
+    "unzip": true
+  },
+  "tmdb": {
+    "env_path": ".env",
+    "api_key_env": "TMDB_API_KEY",
+    "cache_dir": "data/raw/tmdb/runtime_cache",
+    "language": "en-US",
+    "request_interval_seconds": 0.25
+  }
+}
