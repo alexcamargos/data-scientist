@@ -26,7 +26,11 @@ from cinematic_chronos.processing import (
 
 
 class IngestionTestCase(unittest.TestCase):
+    """Tests for Cinematic Chronos ingestion and processing workflows."""
+
     def test_load_config_resolves_project_paths(self) -> None:
+        """Verify that project-relative config paths are resolved correctly."""
+
         config = load_config(Path("cinematic_chronos/config/ingestion.json"))
 
         self.assertEqual(
@@ -50,6 +54,8 @@ class IngestionTestCase(unittest.TestCase):
         self.assertEqual(config.tmdb_api_key_env, "TMDB_API_KEY")
 
     def test_local_raw_store_records_json_lines(self) -> None:
+        """Verify that local raw store writes extract metadata as JSON Lines."""
+
         with tempfile.TemporaryDirectory() as temp_dir:
             tmp_path = Path(temp_dir)
             store = LocalRawStore(tmp_path / "raw", tmp_path / "raw" / "manifest.jsonl")
@@ -66,6 +72,8 @@ class IngestionTestCase(unittest.TestCase):
             self.assertIn('"status": "dry-run"', manifest.read_text(encoding="utf-8"))
 
     def test_kaggle_dry_run_does_not_require_client(self) -> None:
+        """Verify that Kaggle dry runs avoid external client requirements."""
+
         with tempfile.TemporaryDirectory() as temp_dir:
             tmp_path = Path(temp_dir)
             store = LocalRawStore(tmp_path / "raw", tmp_path / "raw" / "manifest.jsonl")
@@ -82,6 +90,8 @@ class IngestionTestCase(unittest.TestCase):
             self.assertEqual(result.source_uri, "owner/dataset")
 
     def test_filter_best_picture_nominees_keeps_only_best_picture(self) -> None:
+        """Verify that Best Picture filtering drops unrelated award rows."""
+
         data = pd.DataFrame(
             [
                 {
@@ -114,6 +124,8 @@ class IngestionTestCase(unittest.TestCase):
         self.assertEqual(set(filtered["film"]), {"Anora", "Wings"})
 
     def test_process_bronze_writes_best_picture_parquet(self) -> None:
+        """Verify that bronze processing writes filtered nominees to Parquet."""
+
         with tempfile.TemporaryDirectory() as temp_dir:
             tmp_path = Path(temp_dir)
             raw_dir = tmp_path / "raw"
@@ -153,6 +165,8 @@ class IngestionTestCase(unittest.TestCase):
             self.assertEqual(output.loc[0, "film"], "Moonlight")
 
     def test_tmdb_runtime_enrichment_dry_run_only_counts_missing_runtime(self) -> None:
+        """Verify that TMDb dry run counts rows without calling the API."""
+
         with tempfile.TemporaryDirectory() as temp_dir:
             tmp_path = Path(temp_dir)
             bronze_dir = tmp_path / "bronze"
@@ -195,6 +209,8 @@ class IngestionTestCase(unittest.TestCase):
             self.assertEqual(result.rows_written, 0)
 
     def test_tmdb_runtime_enrichment_reads_api_key_from_dotenv(self) -> None:
+        """Verify that TMDb enrichment can load API keys from dotenv files."""
+
         with tempfile.TemporaryDirectory() as temp_dir:
             tmp_path = Path(temp_dir)
             bronze_dir = tmp_path / "bronze"
@@ -247,6 +263,8 @@ class IngestionTestCase(unittest.TestCase):
             self.assertEqual(output.loc[0, "runtime_minutes"], 132)
 
     def test_tmdb_runtime_client_caches_api_response(self) -> None:
+        """Verify that TMDb client reuses cached runtime payloads."""
+
         with tempfile.TemporaryDirectory() as temp_dir:
             session = FakeTmdbSession()
             client = TmdbRuntimeClient(
@@ -268,6 +286,8 @@ class IngestionTestCase(unittest.TestCase):
             self.assertEqual(session.call_count, 2)
 
     def test_tmdb_runtime_client_retries_cached_miss_without_year(self) -> None:
+        """Verify that cached misses are retried without year constraints."""
+
         with tempfile.TemporaryDirectory() as temp_dir:
             cache_dir = Path(temp_dir)
             cache_dir.joinpath("the-broadway-melody-1928.json").write_text(
@@ -298,6 +318,8 @@ class IngestionTestCase(unittest.TestCase):
             self.assertEqual(session.call_count, 3)
 
     def test_tmdb_runtime_client_retries_possessive_title_variant(self) -> None:
+        """Verify that possessive titles are retried with a shorter variant."""
+
         with tempfile.TemporaryDirectory() as temp_dir:
             cache_dir = Path(temp_dir)
             cache_dir.joinpath("meredith-willson-s-the-music-man-1962.json").write_text(
@@ -330,21 +352,60 @@ class IngestionTestCase(unittest.TestCase):
 
 
 class FakeTmdbResponse:
+    """Minimal TMDb HTTP response double.
+
+    Attributes:
+        payload: JSON payload returned by ``json``.
+    """
+
     def __init__(self, payload: dict) -> None:
+        """Initialize the response double.
+
+        Args:
+            payload: JSON payload returned by ``json``.
+        """
+
         self.payload = payload
 
     def raise_for_status(self) -> None:
+        """Simulate a successful HTTP response status check."""
+
         return None
 
     def json(self) -> dict:
+        """Return the configured JSON payload.
+
+        Returns:
+            Response payload.
+        """
+
         return self.payload
 
 
 class FakeTmdbSession:
+    """TMDb session double that returns a successful runtime lookup.
+
+    Attributes:
+        call_count: Number of fake HTTP calls made.
+    """
+
     def __init__(self) -> None:
+        """Initialize the fake session call counter."""
+
         self.call_count = 0
 
     def get(self, url: str, *, params: dict, timeout: int) -> FakeTmdbResponse:
+        """Return fake search or detail responses.
+
+        Args:
+            url: Requested TMDb URL.
+            params: Request query parameters.
+            timeout: Request timeout in seconds.
+
+        Returns:
+            Fake TMDb response.
+        """
+
         self.call_count += 1
         if url.endswith("/search/movie"):
             return FakeTmdbResponse({"results": [{"id": 496243}]})
@@ -352,10 +413,29 @@ class FakeTmdbSession:
 
 
 class FakeTmdbFallbackSession:
+    """TMDb session double that requires a fallback without year.
+
+    Attributes:
+        call_count: Number of fake HTTP calls made.
+    """
+
     def __init__(self) -> None:
+        """Initialize the fake session call counter."""
+
         self.call_count = 0
 
     def get(self, url: str, *, params: dict, timeout: int) -> FakeTmdbResponse:
+        """Return fake responses for year-constrained fallback testing.
+
+        Args:
+            url: Requested TMDb URL.
+            params: Request query parameters.
+            timeout: Request timeout in seconds.
+
+        Returns:
+            Fake TMDb response.
+        """
+
         self.call_count += 1
         if url.endswith("/search/movie"):
             if "year" in params:
@@ -365,10 +445,29 @@ class FakeTmdbFallbackSession:
 
 
 class FakeTmdbTitleVariantSession:
+    """TMDb session double that matches only a title variant.
+
+    Attributes:
+        call_count: Number of fake HTTP calls made.
+    """
+
     def __init__(self) -> None:
+        """Initialize the fake session call counter."""
+
         self.call_count = 0
 
     def get(self, url: str, *, params: dict, timeout: int) -> FakeTmdbResponse:
+        """Return fake responses for title variant fallback testing.
+
+        Args:
+            url: Requested TMDb URL.
+            params: Request query parameters.
+            timeout: Request timeout in seconds.
+
+        Returns:
+            Fake TMDb response.
+        """
+
         self.call_count += 1
         if url.endswith("/search/movie"):
             if params["query"] == "The Music Man":
@@ -378,6 +477,12 @@ class FakeTmdbTitleVariantSession:
 
 
 class FakeRuntimeClient:
+    """Runtime client double used by enrichment workflow tests.
+
+    Attributes:
+        last_api_key: Last API key passed to a fake client instance.
+    """
+
     last_api_key: str | None = None
 
     def __init__(
@@ -388,10 +493,29 @@ class FakeRuntimeClient:
         language: str,
         request_interval_seconds: float,
     ) -> None:
+        """Initialize the fake runtime client.
+
+        Args:
+            api_key: API key passed by the enrichment workflow.
+            cache_dir: Cache directory passed by the workflow.
+            language: TMDb language passed by the workflow.
+            request_interval_seconds: Request interval passed by the workflow.
+        """
+
         self.last_api_key = api_key
         FakeRuntimeClient.last_api_key = api_key
 
     def get_runtime(self, title: str, year: int | None) -> dict:
+        """Return a deterministic runtime payload.
+
+        Args:
+            title: Requested movie title.
+            year: Requested movie year.
+
+        Returns:
+            Runtime payload used by enrichment tests.
+        """
+
         return {
             "runtime_minutes": 132,
             "tmdb_id": 496243,
